@@ -334,6 +334,9 @@ largement. Un VPS d'entrée de gamme à ~4-5 €/mois fait le travail.
 
 Prévoyez ~1 Go de disque : Chromium, les profils et la base restent légers.
 
+> **Guide pas à pas** : voir [DEPLOY.md](DEPLOY.md) pour un déploiement complet sur VPS,
+> de la première connexion SSH au service systemd.
+
 ### Installation sur Debian/Ubuntu
 
 ```bash
