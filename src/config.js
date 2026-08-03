@@ -53,6 +53,9 @@ function resolveEncryptionKey() {
 // Aucune variable n'est obligatoire : l'outil fonctionne sans .env du tout.
 export const config = {
   port: Number(process.env.PORT) || 3000,
+  // Boucle locale par defaut : sur un serveur distant, l'acces se fait par
+  // tunnel SSH plutot qu'en ouvrant le port.
+  host: (process.env.HOST || '127.0.0.1').trim(),
   uiPassword: process.env.UI_PASSWORD || '',
   dbPath: path.join(DATA_DIR, 'cross-rt.db'),
   encryptionKey: resolveEncryptionKey(),

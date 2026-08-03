@@ -309,3 +309,87 @@ chaque rejet.
 
 **Laisser tourner en continu** : la machine doit rester allumée. Sur Windows, utilisez le
 Planificateur de tâches avec un déclencheur « au démarrage ».
+
+---
+
+## Héberger l'outil
+
+### Le piège : l'adresse IP du serveur
+
+Un VPS a une **IP de datacenter**, que X surveille bien plus étroitement qu'une IP
+résidentielle. C'est le facteur décisif :
+
+- **Tous vos comptes ont un proxy** → l'IP du VPS n'est quasiment jamais utilisée pour
+  joindre X (lecture *et* navigateur sortent par le proxy du compte). **Le VPS est un
+  bon choix.**
+- **Certains comptes n'ont pas de proxy** → leur trafic partirait de l'IP datacenter.
+  C'est *pire* que votre PC. Dans ce cas, hébergez à la maison : PC laissé allumé, ou un
+  petit serveur type Raspberry Pi, pour conserver une IP résidentielle.
+
+### Dimensionnement
+
+Chromium est le poste dominant : comptez **2 Go de RAM** minimum (1 Go passe tout juste
+mais laisse peu de marge). Un seul navigateur tourne à la fois, donc 2 vCPU suffisent
+largement. Un VPS d'entrée de gamme à ~4-5 €/mois fait le travail.
+
+Prévoyez ~1 Go de disque : Chromium, les profils et la base restent légers.
+
+### Installation sur Debian/Ubuntu
+
+```bash
+sudo apt update && sudo apt install -y nodejs npm git
+git clone <votre-depot> cross-rt && cd cross-rt
+npm install
+npx playwright install --with-deps chromium
+```
+
+`--with-deps` installe les bibliothèques système dont Chromium a besoin ; sans elle, le
+navigateur échouera à démarrer.
+
+### Accès à l'interface — ne l'exposez pas
+
+Par défaut, l'outil n'écoute que sur `127.0.0.1`. **Gardez ce réglage** : l'interface
+donne accès à des sessions X connectées. Pour y accéder depuis votre poste, ouvrez un
+tunnel SSH :
+
+```bash
+ssh -L 3000:127.0.0.1:3000 utilisateur@votre-serveur
+```
+
+Puis <http://127.0.0.1:3000> dans votre navigateur local. Rien n'est publié sur Internet.
+
+Si vous choisissez malgré tout d'exposer le port (`HOST=0.0.0.0`), l'outil vous avertit
+au démarrage et **exige** un `UI_PASSWORD` — sans quoi n'importe qui pilote vos comptes.
+
+### Le maintenir en vie
+
+Créez `/etc/systemd/system/cross-rt.service` :
+
+```ini
+[Unit]
+Description=Cross-RT
+After=network.target
+
+[Service]
+Type=simple
+User=cross
+WorkingDirectory=/home/cross/cross-rt
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable --now cross-rt && journalctl -u cross-rt -f
+```
+
+Le service redémarre tout seul après un plantage ou un reboot.
+
+### Sauvegarde
+
+`data/` contient la clé de chiffrement, la base et les profils Chromium. Le perdre
+signifie reconnecter tous les comptes. Le copier ailleurs signifie exposer vos sessions :
+si vous le sauvegardez, chiffrez la sauvegarde.

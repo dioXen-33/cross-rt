@@ -259,8 +259,20 @@ app.use(express.static(path.join(ROOT, 'public')));
 // code tourne reellement apres une modification.
 const BUILD = 'v5.0 (retweet Chromium + proxy)';
 
-const server = app.listen(config.port, () => {
-  log.info(`Cross-RT ${BUILD} — interface sur http://127.0.0.1:${config.port}`);
+// On ecoute par defaut sur la boucle locale uniquement : sur un serveur
+// distant, exposer cette interface reviendrait a offrir les sessions X
+// enregistrees a Internet. Passer HOST=0.0.0.0 est un choix explicite.
+const server = app.listen(config.port, config.host, () => {
+  log.info(`Cross-RT ${BUILD} — interface sur http://${config.host}:${config.port}`);
+  if (config.host !== '127.0.0.1') {
+    log.warn(
+      `Interface exposee sur ${config.host} : accessible hors de cette machine. ` +
+        `Assure-toi qu'un UI_PASSWORD est defini et qu'un pare-feu filtre le port ${config.port}.`
+    );
+    if (!config.uiPassword) {
+      log.error('UI_PASSWORD est vide alors que l\'interface est exposee : n\'importe qui peut piloter tes comptes.');
+    }
+  }
   startEngine();
 });
 
