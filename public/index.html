@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cross-RT — pilotage des retweets</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="login" class="login hidden">
+  <form id="login-form" class="card">
+    <h1>Cross-RT</h1>
+    <p class="muted">Interface protegee par mot de passe.</p>
+    <input type="password" id="login-password" placeholder="Mot de passe" autocomplete="current-password" required>
+    <button class="btn primary" type="submit">Entrer</button>
+    <p class="error" id="login-error"></p>
+  </form>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <div>
+      <h1>Cross-RT</h1>
+      <p class="muted">Retweet automatique entre vos comptes X, via navigateur</p>
+    </div>
+    <div class="header-actions">
+      <span id="status-pill" class="pill">—</span>
+      <button class="btn" id="btn-poll">Verifier maintenant</button>
+      <button class="btn" id="btn-pause">Mettre en pause</button>
+    </div>
+  </header>
+
+  <p id="detection-note" class="detection-note hidden"></p>
+
+  <section class="stats" id="stats"></section>
+
+  <section class="columns">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h2>Comptes a retweeter</h2>
+          <p class="muted">Detectes via l'endpoint public de X : aucune connexion necessaire.</p>
+        </div>
+      </div>
+      <form class="add-form" data-role="source">
+        <input type="text" placeholder="@pseudo du compte source" autocomplete="off" required>
+        <button class="btn primary" type="submit">Ajouter</button>
+      </form>
+      <p class="error" data-error="source"></p>
+      <div id="list-sources" class="list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h2>Comptes qui retweetent</h2>
+          <p class="muted">Chacun a besoin de ses cookies de session, a importer une fois.</p>
+        </div>
+      </div>
+      <form class="add-form" data-role="amplifier">
+        <input type="text" placeholder="@pseudo du compte qui retweete" autocomplete="off" required>
+        <button class="btn primary" type="submit">Ajouter</button>
+      </form>
+      <p class="error" data-error="amplifier"></p>
+      <div id="list-amplifiers" class="list"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <h2>Reglages</h2>
+        <p class="muted">Les delais aleatoires et les plafonds evitent un comportement robotique.</p>
+      </div>
+      <button class="btn primary" id="btn-save-settings">Enregistrer</button>
+    </div>
+    <div class="settings-grid" id="settings"></div>
+    <p class="saved hidden" id="settings-saved">Reglages enregistres.</p>
+  </section>
+
+  <section class="columns">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h2>File de retweets</h2>
+          <p class="muted">Programmes, effectues et echecs.</p>
+        </div>
+        <button class="btn" id="btn-clear-jobs">Purger l'historique</button>
+      </div>
+      <div id="jobs" class="table-wrap"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div><h2>Journal</h2><p class="muted">Activite recente du moteur.</p></div></div>
+      <div id="logs" class="logs"></div>
+    </div>
+  </section>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

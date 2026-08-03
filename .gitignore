@@ -1,0 +1,26 @@
+# Dependances
+node_modules/
+
+# --- SECRETS : ne JAMAIS versionner ---
+# data/ contient la cle de chiffrement, la base (cookies chiffres)
+# et les profils Chromium (sessions X actives).
+data/
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Bases SQLite, ou qu'elles soient
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Systeme / editeurs
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.log
