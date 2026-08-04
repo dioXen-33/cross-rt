@@ -12,7 +12,11 @@
 
 // Bearer public du client web de X, identique pour tout le monde et stable
 // depuis des annees. Ce n'est pas un secret : il est en clair dans le JS du site.
-import { ProxyAgent } from 'undici';
+// On utilise le fetch d'undici, pas celui integre a Node : le ProxyAgent qui
+// route par le proxy du compte provient d'undici, et le fetch de Node (base sur
+// une autre copie d'undici) le rejette avec « invalid onRequestStart method »,
+// remonte en « fetch failed ». Les deux doivent venir du meme paquet.
+import { fetch, ProxyAgent } from 'undici';
 
 const WEB_BEARER =
   'AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
