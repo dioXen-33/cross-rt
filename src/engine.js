@@ -149,8 +149,22 @@ let detectPauseLogged = 0;
 let consecutive429 = 0;
 let noReaderLogged = false;
 
-/** Derniere tentative par compte, en memoire : sert au tour de role. */
-const lastAttemptAt = new Map();
+/**
+ * Prochaine verification autorisee par compte source (epoch ms).
+ *
+ * Chaque source suit sa propre cadence : apres l'avoir interrogee, on tire un
+ * delai aleatoire dans [poll_min_sec, poll_max_sec]. Independant d'un compte a
+ * l'autre et retire a chaque cycle, ce qui evite tout intervalle regulier
+ * reperable. Une source jamais interrogee (pas d'entree) est due immediatement.
+ */
+const nextDueAt = new Map();
+
+function scheduleNext(sourceId, settings) {
+  const min = Math.max(15, num(settings, 'poll_min_sec'));
+  const max = Math.max(min, num(settings, 'poll_max_sec'));
+  const delayMs = (min + Math.random() * (max - min)) * 1000;
+  nextDueAt.set(sourceId, Date.now() + delayMs);
+}
 
 /**
  * Session utilisee pour LIRE les timelines.
@@ -182,19 +196,26 @@ function readerSession() {
   return { account, session: sessionOf(account) };
 }
 
-/** Interroge un seul compte source par cycle, du plus anciennement lu au plus recent. */
-async function pollNextSource(settings, { force = false } = {}) {
+/** Instantane des echeances par source (copie, pour les tests). */
+export function _detectionSchedule() {
+  return new Map(nextDueAt);
+}
+
+/** Interroge une seule source par cycle : la plus en retard sur sa cadence. */
+export async function pollNextSource(settings, { force = false } = {}) {
   if (!force && Date.now() < detectPauseUntil) return;
 
-  const intervalMs = Math.max(30, num(settings, 'poll_interval_sec')) * 1000;
   const now = Date.now();
-  const candidate = sources()
-    .filter((s) => force || now - (lastAttemptAt.get(s.id) || 0) >= intervalMs)
-    .sort((a, b) => (lastAttemptAt.get(a.id) || 0) - (lastAttemptAt.get(b.id) || 0))[0];
+  const due = sources().filter((s) => force || now >= (nextDueAt.get(s.id) ?? 0));
+  if (!due.length) return;
 
-  if (!candidate) return;
-  lastAttemptAt.set(candidate.id, now);
+  // La plus en retard d'abord (echeance la plus ancienne).
+  due.sort((a, b) => (nextDueAt.get(a.id) ?? 0) - (nextDueAt.get(b.id) ?? 0));
+  const candidate = due[0];
+
   await pollSource(candidate, settings);
+  // Nouvelle echeance aleatoire, meme si la lecture a echoue : on ne martele pas.
+  scheduleNext(candidate.id, settings);
 }
 
 async function pollSource(source, settings) {
@@ -530,7 +551,7 @@ export async function pollNow() {
   try {
     const settings = getSettings();
     if (num(settings, 'paused')) return;
-    lastAttemptAt.clear();
+    nextDueAt.clear();
     detectPauseUntil = 0; // on ignore la pause : l'utilisateur veut reessayer
     await pollNextSource(settings, { force: true });
     await runDueJobs(settings);
@@ -539,21 +560,15 @@ export async function pollNow() {
   }
 }
 
-/**
- * Etat de la detection. Les limites etant desormais rattachees aux sessions et
- * non a l'IP, l'intervalle n'est plus contraint par un quota partage : un seul
- * compte est lu par cycle, d'ou l'intervalle effectif ci-dessous.
- */
+/** Etat de la detection : plage aleatoire appliquee, sessions de lecture, pause. */
 export function detectionStatus(settings) {
-  const sourceCount = sources().length;
-  const readerCount = amplifiers().filter((a) => a.auth_token && a.ct0).length;
-  const configured = Math.max(30, num(settings, 'poll_interval_sec'));
-  const spacingSec = WORKER_TICK_MS / 1000;
+  const min = Math.max(15, num(settings, 'poll_min_sec'));
+  const max = Math.max(min, num(settings, 'poll_max_sec'));
   return {
-    sourceCount,
-    readerCount,
-    configuredIntervalSec: configured,
-    effectiveIntervalSec: Math.max(configured, sourceCount * spacingSec),
+    sourceCount: sources().length,
+    readerCount: amplifiers().filter((a) => a.auth_token && a.ct0).length,
+    pollMinSec: min,
+    pollMaxSec: max,
     pausedUntil: detectPauseUntil > Date.now() ? detectPauseUntil : null,
   };
 }

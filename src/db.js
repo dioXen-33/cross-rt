@@ -96,7 +96,10 @@ db.exec(`
 
 export const DEFAULT_SETTINGS = {
   paused: '0',
-  poll_interval_sec: '120',      // detection authentifiee : limites par compte, pas par IP
+  // Detection : chaque source est verifiee a un intervalle aleatoire tire dans
+  // cette plage, independant par compte. Evite tout rythme regulier reperable.
+  poll_min_sec: '90',
+  poll_max_sec: '240',
   delay_min_sec: '90',           // delai aleatoire minimum avant un RT
   delay_max_sec: '900',          // delai aleatoire maximum avant un RT
   stagger_sec: '180',            // ecart minimum entre 2 amplificateurs

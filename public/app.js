@@ -2,7 +2,8 @@ const $ = (id) => document.getElementById(id);
 let state = null;
 
 const SETTING_FIELDS = [
-  { key: 'poll_interval_sec', label: 'Frequence de detection (s)', type: 'number', min: 30, hint: 'Lecture authentifiee : limites par compte, plus par IP.' },
+  { key: 'poll_min_sec', label: 'Detection : intervalle min (s)', type: 'number', min: 15, hint: 'Chaque source est verifiee a un intervalle aleatoire tire dans cette plage.' },
+  { key: 'poll_max_sec', label: 'Detection : intervalle max (s)', type: 'number', min: 15, hint: 'Tirage independant par compte et a chaque cycle : pas de rythme regulier.' },
   { key: 'delay_min_sec', label: 'Delai minimum avant RT (s)', type: 'number', min: 0 },
   { key: 'delay_max_sec', label: 'Delai maximum avant RT (s)', type: 'number', min: 0, hint: 'Un delai aleatoire dans cette plage est tire pour chaque RT.' },
   { key: 'stagger_sec', label: 'Ecart entre amplificateurs (s)', type: 'number', min: 0, hint: 'Evite que tous les comptes retweetent en meme temps.' },
@@ -267,7 +268,7 @@ function renderDetection() {
   if (!d || !d.sourceCount) { box.classList.add('hidden'); return; }
   box.classList.remove('hidden');
 
-  const min = (s) => (s < 60 ? `${s} s` : `${Math.round(s / 60)} min`);
+  const fmt = (s) => (s < 60 ? `${s} s` : `${Math.round(s / 60)} min`);
   const paused = d.pausedUntil
     ? ` <span class="warn-text">Lecture en pause, reprise dans ${Math.ceil((d.pausedUntil - Date.now()) / 60_000)} min.</span>`
     : '';
@@ -276,7 +277,7 @@ function renderDetection() {
     : `<span class="warn-text">aucune session de lecture — importez des cookies</span>`;
 
   box.innerHTML = `${d.sourceCount} compte(s) source &middot; verification toutes les
-    <strong>${min(d.effectiveIntervalSec)}</strong> par compte &middot; ${readers}.${paused}`;
+    <strong>${fmt(d.pollMinSec)} a ${fmt(d.pollMaxSec)}</strong> (aleatoire, par compte) &middot; ${readers}.${paused}`;
 }
 
 function renderStatus() {
