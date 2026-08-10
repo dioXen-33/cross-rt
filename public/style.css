@@ -99,6 +99,29 @@ header {
 .import-row { display: flex; gap: 8px; align-items: center; }
 .import-status { font-size: 12px; color: var(--muted); }
 
+.group-chips {
+  flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);
+}
+.chip-label { font-size: 12px; color: var(--muted); margin-right: 2px; }
+.chip-note { font-size: 12px; color: var(--muted); font-style: italic; }
+.chip {
+  font-size: 12px; padding: 3px 10px; border-radius: 999px; cursor: pointer;
+  background: var(--surface); color: var(--muted);
+  border: 1px solid var(--border);
+}
+.chip:hover { border-color: #39404e; }
+.chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.groups-list { display: flex; flex-direction: column; gap: 8px; }
+.group-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px 12px;
+}
+.group-name { font-weight: 600; flex: 1; }
+.group-count { font-size: 12px; color: var(--muted); }
+
 .session { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 3px; }
 .badge {
   font-size: 11px; font-weight: 600; padding: 2px 8px;

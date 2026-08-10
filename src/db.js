@@ -75,6 +75,23 @@ db.exec(`
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+
+  -- Groupes d'amplificateurs. « GROUPS » etant un mot-cle SQLite, on prefixe.
+  CREATE TABLE IF NOT EXISTS rt_groups (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL UNIQUE,
+    created_at INTEGER NOT NULL
+  );
+
+  -- Appartenance compte <-> groupe. Pour un amplificateur : il EST dans ce
+  -- groupe. Pour une source : elle est retweetee PAR ce groupe.
+  CREATE TABLE IF NOT EXISTS account_groups (
+    account_id TEXT NOT NULL,
+    group_id   INTEGER NOT NULL,
+    PRIMARY KEY (account_id, group_id),
+    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE,
+    FOREIGN KEY (group_id)   REFERENCES rt_groups(id) ON DELETE CASCADE
+  );
 `);
 
 export const DEFAULT_SETTINGS = {
@@ -122,4 +139,47 @@ export function setSettings(patch) {
 export function num(settings, key) {
   const n = Number(settings[key]);
   return Number.isFinite(n) ? n : Number(DEFAULT_SETTINGS[key]);
+}
+
+// ------------------------------------------------------------------ groupes
+
+/** Groupes, avec le nombre d'amplificateurs qui y appartiennent. */
+export function listGroups() {
+  return db
+    .prepare(
+      `SELECT g.id, g.name,
+              (SELECT COUNT(*) FROM account_groups ag
+                 JOIN accounts a ON a.id = ag.account_id
+                WHERE ag.group_id = g.id AND a.role IN ('amplifier', 'both')) AS amplifier_count
+         FROM rt_groups g ORDER BY g.name COLLATE NOCASE`
+    )
+    .all();
+}
+
+export function createGroup(name) {
+  return db.prepare('INSERT INTO rt_groups (name, created_at) VALUES (?, ?)').run(name, Date.now()).lastInsertRowid;
+}
+
+export function renameGroup(id, name) {
+  db.prepare('UPDATE rt_groups SET name = ? WHERE id = ?').run(name, id);
+}
+
+export function deleteGroup(id) {
+  // Le CASCADE retire aussi les appartenances liees a ce groupe.
+  db.prepare('DELETE FROM rt_groups WHERE id = ?').run(id);
+}
+
+/** Identifiants des groupes auxquels un compte est rattache. */
+export function groupIdsForAccount(accountId) {
+  return db.prepare('SELECT group_id FROM account_groups WHERE account_id = ?').all(accountId).map((r) => r.group_id);
+}
+
+/** Remplace l'ensemble des groupes d'un compte. */
+export function setAccountGroups(accountId, groupIds) {
+  db.prepare('DELETE FROM account_groups WHERE account_id = ?').run(accountId);
+  const ins = db.prepare('INSERT OR IGNORE INTO account_groups (account_id, group_id) VALUES (?, ?)');
+  for (const gid of groupIds) {
+    const n = Number(gid);
+    if (Number.isInteger(n)) ins.run(accountId, n);
+  }
 }

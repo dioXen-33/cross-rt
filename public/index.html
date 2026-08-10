@@ -70,6 +70,21 @@
   <section class="card">
     <div class="card-head">
       <div>
+        <h2>Groupes</h2>
+        <p class="muted">Rangez vos amplificateurs en groupes, puis choisissez quel groupe retweete chaque source.</p>
+      </div>
+    </div>
+    <form class="add-form" id="group-form">
+      <input type="text" placeholder="Nom du groupe (ex. FR, Crypto, Marque A)" autocomplete="off" maxlength="40" required>
+      <button class="btn primary" type="submit">Creer</button>
+    </form>
+    <p class="error" id="group-error"></p>
+    <div id="groups-list" class="groups-list"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div>
         <h2>Reglages</h2>
         <p class="muted">Les delais aleatoires et les plafonds evitent un comportement robotique.</p>
       </div>

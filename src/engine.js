@@ -1,4 +1,4 @@
-import { db, getSettings, num } from './db.js';
+import { db, getSettings, num, groupIdsForAccount } from './db.js';
 import { isNewer, maxId } from './detect.js';
 import { retweet, BrowserSessionError, ChallengeError } from './browser.js';
 import {
@@ -98,8 +98,27 @@ const insertJob = db.prepare(
    VALUES (?, ?, ?, 'pending', ?, ?, ?)`
 );
 
+/**
+ * Amplificateurs qui doivent retweeter cette source, selon les groupes.
+ *
+ * - Source sans groupe assigne  -> tous les amplificateurs (comportement par
+ *   defaut, inchange).
+ * - Source avec des groupes      -> uniquement les amplificateurs qui
+ *   appartiennent a au moins un de ces groupes.
+ */
+export function targetsForSource(source) {
+  let targets = amplifiers().filter((a) => a.id !== source.id);
+
+  const sourceGroups = groupIdsForAccount(source.id);
+  if (sourceGroups.length) {
+    const wanted = new Set(sourceGroups);
+    targets = targets.filter((a) => groupIdsForAccount(a.id).some((g) => wanted.has(g)));
+  }
+  return targets;
+}
+
 function enqueuePost(post, source, settings) {
-  const targets = amplifiers().filter((a) => a.id !== source.id);
+  const targets = targetsForSource(source);
   if (!targets.length) return 0;
 
   const minDelay = num(settings, 'delay_min_sec') * 1000;

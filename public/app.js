@@ -88,6 +88,28 @@ function sessionBadge(a) {
   return `<span class="badge bad">Aucune session</span>${proxy}`;
 }
 
+/**
+ * Puces de groupes sur une carte.
+ * - Amplificateur : les groupes auxquels il APPARTIENT.
+ * - Source        : les groupes qui la RETWEETENT (aucun = tous).
+ * Un clic bascule l'appartenance et enregistre aussitot.
+ */
+function groupChips(a, column) {
+  const groups = state.groups || [];
+  if (!groups.length) return '';
+
+  const ids = new Set(a.group_ids || []);
+  const label = column === 'source' ? 'Retweete par' : 'Groupes';
+  const chips = groups
+    .map(
+      (g) =>
+        `<button class="chip ${ids.has(g.id) ? 'on' : ''}" data-action="toggle-group" data-id="${a.id}" data-group="${g.id}">${esc(g.name)}</button>`
+    )
+    .join('');
+  const note = column === 'source' && ids.size === 0 ? '<span class="chip-note">tous les amplificateurs</span>' : '';
+  return `<div class="group-chips"><span class="chip-label">${label} :</span>${chips}${note}</div>`;
+}
+
 function accountCard(a, column) {
   const err = a.last_error ? `<div class="err">${esc(a.last_error)}</div>` : '';
 
@@ -155,6 +177,7 @@ function accountCard(a, column) {
       ${a.enabled ? 'Desactiver' : 'Activer'}
     </button>
     <button class="btn small danger" data-action="remove" data-id="${a.id}" data-username="${esc(a.username)}">Retirer</button>
+    ${groupChips(a, column)}
     ${err}${importForm}${proxyForm}
   </div>`;
 }
@@ -170,6 +193,26 @@ function renderAccounts() {
   $('list-amplifiers').innerHTML = amps.length
     ? amps.map((a) => accountCard(a, 'amplifier')).join('')
     : '<div class="empty">Ajoutez les comptes qui doivent retweeter, puis connectez leur session.</div>';
+}
+
+function renderGroups() {
+  const groups = state.groups || [];
+  const box = $('groups-list');
+  if (!groups.length) {
+    box.innerHTML =
+      '<div class="empty">Aucun groupe. Tant qu’aucun groupe n’est assigne a une source, chaque amplificateur retweete toutes les sources.</div>';
+    return;
+  }
+  box.innerHTML = groups
+    .map(
+      (g) => `<div class="group-row">
+        <span class="group-name">${esc(g.name)}</span>
+        <span class="group-count">${g.amplifier_count} ampli</span>
+        <button class="btn small" data-action="rename-group" data-id="${g.id}" data-name="${esc(g.name)}">Renommer</button>
+        <button class="btn small danger" data-action="delete-group" data-id="${g.id}" data-name="${esc(g.name)}">Supprimer</button>
+      </div>`
+    )
+    .join('');
 }
 
 function renderSettings() {
@@ -251,6 +294,7 @@ function render() {
   renderDetection();
   renderStats();
   renderAccounts();
+  renderGroups();
   renderJobs();
   renderLogs();
 }
@@ -272,8 +316,9 @@ async function refresh({ force = false } = {}) {
 
 document.querySelectorAll('.add-form').forEach((form) => {
   form.addEventListener('submit', async (e) => {
-    e.preventDefault();
     const role = form.dataset.role;
+    if (!role) return; // le formulaire de groupe (meme classe) a son propre handler
+    e.preventDefault();
     const input = form.querySelector('input');
     const errorBox = document.querySelector(`[data-error="${role}"]`);
     errorBox.textContent = '';
@@ -317,6 +362,35 @@ document.addEventListener('click', async (e) => {
     importOpen = null;
     proxyOpen = null;
     refresh({ force: true });
+    return;
+  }
+
+  // --- groupes ---
+  if (action === 'toggle-group') {
+    const acc = state.accounts.find((x) => x.id === id);
+    const gid = Number(btn.dataset.group);
+    const set = new Set(acc?.group_ids || []);
+    set.has(gid) ? set.delete(gid) : set.add(gid);
+    await api(`/api/accounts/${id}/groups`, { method: 'PUT', body: { groupIds: [...set] } });
+    refresh();
+    return;
+  }
+  if (action === 'delete-group') {
+    if (!confirm(`Supprimer le groupe « ${btn.dataset.name} » ? Les assignations liees seront retirees.`)) return;
+    await api(`/api/groups/${id}`, { method: 'DELETE' });
+    refresh();
+    return;
+  }
+  if (action === 'rename-group') {
+    const name = prompt('Nouveau nom du groupe :', btn.dataset.name);
+    if (name && name.trim()) {
+      try {
+        await api(`/api/groups/${id}`, { method: 'PUT', body: { name: name.trim() } });
+      } catch (err) {
+        alert(err.message);
+      }
+      refresh();
+    }
     return;
   }
 
@@ -387,6 +461,19 @@ document.addEventListener('submit', async (e) => {
     errorBox.textContent = err.message;
     status.textContent = '';
     submit.disabled = false;
+  }
+});
+
+$('group-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = $('group-form').querySelector('input');
+  $('group-error').textContent = '';
+  try {
+    await api('/api/groups', { method: 'POST', body: { name: input.value.trim() } });
+    input.value = '';
+    refresh({ force: true });
+  } catch (err) {
+    $('group-error').textContent = err.message;
   }
 });
 

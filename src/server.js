@@ -2,7 +2,18 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import express from 'express';
 import { config, ROOT } from './config.js';
-import { db, getSettings, setSettings, num } from './db.js';
+import {
+  db,
+  getSettings,
+  setSettings,
+  num,
+  listGroups,
+  createGroup,
+  renameGroup,
+  deleteGroup,
+  groupIdsForAccount,
+  setAccountGroups,
+} from './db.js';
 import { log } from './log.js';
 import { checkCookies, SessionError, releaseProxy } from './xapi.js';
 import { deleteProfile } from './browser.js';
@@ -170,7 +181,7 @@ app.get('/api/state', (req, res) => {
       if (url) {
         try { proxyHost = new URL(url).host; } catch { proxyHost = 'invalide'; }
       }
-      return { ...rest, proxy_host: proxyHost };
+      return { ...rest, proxy_host: proxyHost, group_ids: groupIdsForAccount(rest.id) };
     });
 
   const jobs = db
@@ -194,10 +205,56 @@ app.get('/api/state', (req, res) => {
     accounts,
     jobs,
     counts,
+    groups: listGroups(),
     logs: db.prepare('SELECT * FROM logs ORDER BY id DESC LIMIT 80').all(),
     settings,
     detection: detectionStatus(settings),
   });
+});
+
+// ------------------------------------------------------------------ groupes
+
+const GROUP_NAME_RE = /^.{1,40}$/;
+
+app.post('/api/groups', (req, res) => {
+  const name = String(req.body?.name || '').trim();
+  if (!GROUP_NAME_RE.test(name)) return res.status(400).json({ error: 'Nom de groupe invalide (1 a 40 caracteres).' });
+  if (db.prepare('SELECT 1 FROM rt_groups WHERE name = ? COLLATE NOCASE').get(name)) {
+    return res.status(409).json({ error: `Le groupe « ${name} » existe deja.` });
+  }
+  const id = createGroup(name);
+  log.info(`Groupe cree : ${name}`);
+  res.json({ ok: true, id });
+});
+
+app.put('/api/groups/:id', (req, res) => {
+  const group = db.prepare('SELECT * FROM rt_groups WHERE id = ?').get(req.params.id);
+  if (!group) return res.status(404).json({ error: 'Groupe introuvable' });
+  const name = String(req.body?.name || '').trim();
+  if (!GROUP_NAME_RE.test(name)) return res.status(400).json({ error: 'Nom de groupe invalide (1 a 40 caracteres).' });
+  const clash = db.prepare('SELECT id FROM rt_groups WHERE name = ? COLLATE NOCASE').get(name);
+  if (clash && clash.id !== group.id) return res.status(409).json({ error: `Le groupe « ${name} » existe deja.` });
+  renameGroup(group.id, name);
+  res.json({ ok: true });
+});
+
+app.delete('/api/groups/:id', (req, res) => {
+  const group = db.prepare('SELECT name FROM rt_groups WHERE id = ?').get(req.params.id);
+  deleteGroup(Number(req.params.id));
+  if (group) log.info(`Groupe supprime : ${group.name}`);
+  res.json({ ok: true });
+});
+
+/** Remplace l'ensemble des groupes d'un compte (appartenance ou ciblage). */
+app.put('/api/accounts/:id/groups', (req, res) => {
+  if (!db.prepare('SELECT 1 FROM accounts WHERE id = ?').get(req.params.id)) {
+    return res.status(404).json({ error: 'Compte introuvable' });
+  }
+  const ids = Array.isArray(req.body?.groupIds) ? req.body.groupIds : [];
+  // On ne garde que des identifiants de groupes reellement existants.
+  const valid = new Set(db.prepare('SELECT id FROM rt_groups').all().map((g) => g.id));
+  setAccountGroups(req.params.id, ids.map(Number).filter((n) => valid.has(n)));
+  res.json({ ok: true });
 });
 
 app.patch('/api/accounts/:id', (req, res) => {
